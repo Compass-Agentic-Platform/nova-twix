@@ -316,6 +316,7 @@ jobs:
           import os
           from pathlib import Path
           import plistlib
+          import shutil
           import subprocess
           import sys
 
@@ -338,6 +339,27 @@ jobs:
                       native.append(path)
           if not native:
               raise SystemExit("No Mach-O binaries found in app")
+          # PyInstaller may collect the Python framework binary without its
+          # metadata. Restore the matching build interpreter's original plist
+          # before signing; do not invent framework identity/version values.
+          for bundle in bundles:
+              if bundle.name != "Python.framework":
+                  continue
+              info = bundle / "Resources" / "Info.plist"
+              versioned_info = bundle / "Versions" / "Current" / "Resources" / "Info.plist"
+              if info.is_file() or versioned_info.is_file():
+                  continue
+              source_info = Path(sys.base_prefix) / "Resources" / "Info.plist"
+              if not source_info.is_file():
+                  raise SystemExit(f"Cannot restore Python framework metadata: {source_info} is missing")
+              with source_info.open("rb") as stream:
+                  metadata = plistlib.load(stream)
+              executable = metadata.get("CFBundleExecutable")
+              if not executable or not (bundle / executable).is_file():
+                  raise SystemExit(f"Python framework metadata does not match bundled executable: {bundle}")
+              info.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source_info, info)
+              print(f"Restored Python framework metadata: {info}")
           # A bundle's main executable is signed and verified via its bundle,
           # not again as a loose Mach-O file (notably Python.framework/Python).
           bundle_executables = set()
