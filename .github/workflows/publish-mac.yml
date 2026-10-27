@@ -43,7 +43,7 @@
 # ============================================================
 #
 #   1. Actions → "Publish macOS (Signed)" → "Run workflow".
-#   2. Optionally pick the source branch/tag and the architecture(s).
+#   2. Optionally pick the source branch/tag (Apple Silicon only).
 #   3. Click "Run workflow".
 #
 # ============================================================
@@ -58,12 +58,6 @@ on:
         required: false
         default: 'master'
         type: string
-      architectures:
-        description: 'Architectures to build'
-        required: false
-        default: 'both'
-        type: choice
-        options: [arm64, x64, both]
 
 env:
   SOURCE_DIR: source-app
@@ -84,10 +78,12 @@ jobs:
     environment: nova-twix-build
     strategy:
       fail-fast: false
-      # Select complete build entries before expanding the matrix.
-      # PyInstaller requires a native runner for each architecture.
+      # Apple Silicon only; PyInstaller runs natively on the ARM runner.
       matrix:
-        include: ${{ fromJSON(inputs.architectures == 'arm64' && '[{"runner":"macos-latest","arch":"arm64","target":"aarch64-apple-darwin"}]' || inputs.architectures == 'x64' && '[{"runner":"macos-15-intel","arch":"x64","target":"x86_64-apple-darwin"}]' || '[{"runner":"macos-latest","arch":"arm64","target":"aarch64-apple-darwin"},{"runner":"macos-15-intel","arch":"x64","target":"x86_64-apple-darwin"}]') }}
+        include:
+          - runner: macos-latest
+            arch: arm64
+            target: aarch64-apple-darwin
 
     steps:
       # ── 0. Checkout the release repo (for scripts + entitlements) ──────────
