@@ -315,13 +315,14 @@ jobs:
           python3 - "$SOURCE_DIR/src-tauri/target/${{ matrix.target }}/release/bundle/macos" <<'PY'
           import os
           from pathlib import Path
+          import plistlib
           import subprocess
           import sys
 
           apps = list(Path(sys.argv[1]).glob("*.app"))
           if len(apps) != 1:
               raise SystemExit(f"Expected one app bundle, found {len(apps)}")
-          app = apps[0]
+          app = apps[0].resolve()
           entitlements = Path("assets/macos-entitlements.plist").resolve()
           identity = os.environ["APPLE_SIGNING_IDENTITY"]
           native = []
@@ -337,16 +338,43 @@ jobs:
                       native.append(path)
           if not native:
               raise SystemExit("No Mach-O binaries found in app")
-          # Sign individual binaries, then enclosing code bundles inside-out.
+          # A bundle's main executable is signed and verified via its bundle,
+          # not again as a loose Mach-O file (notably Python.framework/Python).
+          bundle_executables = set()
+          for bundle in bundles + [app]:
+              layouts = [(bundle / "Contents", bundle / "Contents" / "Info.plist")]
+              if bundle.suffix == ".framework":
+                  layouts = [
+                      (bundle, bundle / "Resources" / "Info.plist"),
+                      (bundle / "Versions" / "Current", bundle / "Versions" / "Current" / "Resources" / "Info.plist"),
+                  ]
+              for root, info in layouts:
+                  if not info.is_file():
+                      continue
+                  with info.open("rb") as stream:
+                      executable = plistlib.load(stream).get("CFBundleExecutable")
+                  if executable:
+                      binary = root / executable if bundle.suffix == ".framework" else root / "MacOS" / executable
+                      binary = binary.resolve(strict=True)
+                      if not binary.is_relative_to(bundle.resolve()):
+                          raise SystemExit(f"Bundle executable escapes its bundle: {binary}")
+                      bundle_executables.add(binary)
+                  break
+              else:
+                  raise SystemExit(f"No Info.plist found for code bundle: {bundle}")
+          standalone = [path for path in native if path.resolve() not in bundle_executables]
+          # Sign loose binaries and enclosing code bundles inside-out.
           # Do not use --deep to sign: every native resource must be covered.
-          targets = sorted(native + bundles, key=lambda p: len(p.parts), reverse=True)
+          targets = sorted(standalone + bundles, key=lambda p: len(p.parts), reverse=True)
           for path in targets + [app]:
               subprocess.run([
                   "codesign", "--force", "--sign", identity, "--timestamp",
                   "--options", "runtime", "--entitlements", str(entitlements), str(path),
               ], check=True)
-          for path in native:
+          for path in standalone:
               subprocess.run(["codesign", "--verify", "--strict", str(path)], check=True)
+          for path in bundles:
+              subprocess.run(["codesign", "--verify", "--deep", "--strict", str(path)], check=True)
           subprocess.run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)], check=True)
           print(f"Verified {len(native)} native binaries and {len(bundles)} nested bundles")
           PY
