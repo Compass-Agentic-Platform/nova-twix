@@ -1,0 +1,401 @@
+# Nova Twix — macOS Signed Release Publisher
+#
+# Builds, signs, notarises and uploads the macOS distribution of Nova Twix
+# (a Tauri 2 / Rust app with a Python processor sidecar). The source is never
+# committed to this repository: it is cloned at build time from Azure DevOps.
+#
+# ============================================================
+# REQUIRED GITHUB SECRETS (environment: nova-twix-build)
+# ============================================================
+#
+#   NOVA_TWIX_REPO            Full clone URL of the Azure DevOps source repo,
+#                             including an embedded PAT for private access.
+#                             Format: https://<pat>@dev.azure.com/oakpeak-devops/Kore/_git/nova-twix
+#
+#   MAC_CSC_LINK              Base64-encoded .p12 "Developer ID Application"
+#                             certificate. Generate with:
+#                               base64 -i certificate.p12 | tr -d '\n'
+#
+#   MAC_CSC_KEY_PASSWORD      Password protecting the .p12 certificate file.
+#
+#   APPLE_ID                  Apple ID email address used for notarisation.
+#
+#   APPLE_ID_PASSWORD         App-specific password for the Apple ID above.
+#                             Generate at: https://appleid.apple.com/account/manage
+#
+#   APPLE_TEAM_ID             10-character Apple Developer Team ID (required).
+#                             Find it at: https://developer.apple.com/account
+#
+# ============================================================
+# PREREQUISITES
+# ============================================================
+#
+#   1. A GitHub Release must already exist in this repository before running
+#      this workflow. The upload step targets the LATEST existing release and
+#      fails with a descriptive error if none exists.
+#
+#   2. The source repo must be a Tauri 2 app whose Python sidecar is declared
+#      in processor/pyproject.toml (name nova-twix-processor) and built with
+#      PyInstaller. See README.md for the exact source-side requirements.
+#
+# ============================================================
+# HOW TO TRIGGER
+# ============================================================
+#
+#   1. Actions → "Publish macOS (Signed)" → "Run workflow".
+#   2. Optionally pick the source branch/tag and the architecture(s).
+#   3. Click "Run workflow".
+#
+# ============================================================
+
+name: Publish macOS (Signed)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch or tag to build from the source repository'
+        required: false
+        default: 'master'
+        type: string
+      architectures:
+        description: 'Architectures to build'
+        required: false
+        default: 'both'
+        type: choice
+        options: [arm64, x64, both]
+
+env:
+  SOURCE_DIR: source-app
+  SIDECAR_NAME: nova-twix-processor
+  RUNTIME_DIR_NAME: nova-twix-processor-runtime
+
+concurrency:
+  group: publish-mac-${{ github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    name: Build, sign, notarise & upload (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    environment: nova-twix-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+            target: aarch64-apple-darwin
+            enabled: ${{ github.event.inputs.architectures == 'arm64' || github.event.inputs.architectures == 'both' }}
+          # NOTE: Intel (x64) builds require an Intel macOS runner because
+          # PyInstaller cannot cross-compile the Python sidecar. Use an
+          # explicitly Intel runner so the sidecar matches the Rust target.
+          - runner: macos-15-intel
+            arch: x64
+            target: x86_64-apple-darwin
+            enabled: ${{ github.event.inputs.architectures == 'x64' || github.event.inputs.architectures == 'both' }}
+        exclude:
+          - enabled: false
+
+    steps:
+      # ── 0. Checkout the release repo (for scripts + entitlements) ──────────
+      - name: Checkout release repository
+        uses: actions/checkout@v4
+
+      # ── 1. Validate required secrets before doing any work ─────────────────
+      - name: Validate required secrets
+        shell: bash
+        env:
+          NOVA_TWIX_REPO: ${{ secrets.NOVA_TWIX_REPO }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          MISSING=()
+          [ -z "$NOVA_TWIX_REPO" ]        && MISSING+=("NOVA_TWIX_REPO")
+          [ -z "$MAC_CSC_LINK" ]          && MISSING+=("MAC_CSC_LINK")
+          [ -z "$MAC_CSC_KEY_PASSWORD" ]  && MISSING+=("MAC_CSC_KEY_PASSWORD")
+          [ -z "$APPLE_ID" ]              && MISSING+=("APPLE_ID")
+          [ -z "$APPLE_ID_PASSWORD" ]     && MISSING+=("APPLE_ID_PASSWORD")
+          [ -z "$APPLE_TEAM_ID" ]         && MISSING+=("APPLE_TEAM_ID")
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            for secret in "${MISSING[@]}"; do
+              echo "::error::Required secret is not set: $secret"
+            done
+            exit 1
+          fi
+          echo "All required secrets are present."
+
+      # ── 2. Clone the source repository from the secret URL ─────────────────
+      - name: Clone source repository
+        shell: bash
+        env:
+          NOVA_TWIX_REPO: ${{ secrets.NOVA_TWIX_REPO }}
+        run: |
+          BRANCH="${{ github.event.inputs.branch }}"
+          BRANCH="${BRANCH:-master}"
+          echo "Cloning branch '$BRANCH' from Azure DevOps…"
+          git clone --depth 1 --branch "$BRANCH" "$NOVA_TWIX_REPO" "$SOURCE_DIR"
+          echo "Clone complete. Contents:"
+          ls -la "$SOURCE_DIR/"
+
+      # ── 3. Toolchains: Rust, Node, Python, uv ──────────────────────────────
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: source-app/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install npm dependencies
+        shell: bash
+        run: npm ci
+        working-directory: source-app
+
+      # ── 4. Build the Python processor sidecar with PyInstaller ─────────────
+      - name: Build processor sidecar (PyInstaller)
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROCESSOR_DIR="$SOURCE_DIR/processor"
+          BINARIES_DIR="$SOURCE_DIR/src-tauri/binaries"
+          mkdir -p "$BINARIES_DIR"
+
+          pushd "$PROCESSOR_DIR" >/dev/null
+          uv sync --frozen --python 3.12 --extra ml --extra build --extra dev
+          PYTHON=".venv/bin/python"
+          test -x "$PYTHON" || { echo "::error::venv python not found at .venv/bin/python"; exit 1; }
+
+          "$PYTHON" -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --onedir \
+            --contents-directory "$RUNTIME_DIR_NAME" \
+            --name "$SIDECAR_NAME" \
+            --distpath build/sidecar-dist \
+            --workpath build/sidecar-work \
+            --specpath build \
+            --paths src \
+            --additional-hooks-dir ../scripts/pyinstaller-hooks \
+            --add-data "../protocol:protocol" \
+            --collect-all whisperx \
+            --collect-all faster_whisper \
+            --collect-all pyannote.audio \
+            --collect-all ctranslate2 \
+            --copy-metadata pyannote.audio \
+            --recursive-copy-metadata whisperx \
+            --collect-data lightning_fabric \
+            --collect-data lightning \
+            --collect-data pytorch_lightning \
+            sidecar_entry.py
+          popd >/dev/null
+
+          BUILT_BIN="$PROCESSOR_DIR/build/sidecar-dist/$SIDECAR_NAME/$SIDECAR_NAME"
+          test -f "$BUILT_BIN" || { echo "::error::PyInstaller did not produce $BUILT_BIN"; exit 1; }
+
+          # Validate the fresh artifact before deploying it (mirrors the
+          # source repo's build-sidecar.ps1: runtime coverage + protocol-v2
+          # handshake). Force offline so the check never hits the network.
+          export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+
+          RUNTIME_REPORT="$("$BUILT_BIN" --check-runtime 2>/dev/null)" || { echo "::error::sidecar --check-runtime failed"; exit 1; }
+          echo "$RUNTIME_REPORT" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d.get("ready") and d.get("coverage")=="imports-and-versions", d' \
+            || { echo "::error::sidecar runtime report is invalid (ready/coverage)"; exit 1; }
+
+          HANDSHAKE_LINE=""
+          IFS= read -r HANDSHAKE_LINE < <( "$BUILT_BIN" </dev/null 2>/dev/null || true ) || true
+          echo "$HANDSHAKE_LINE" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d.get("type")=="handshake" and d.get("protocolVersion")==2, d' \
+            || { echo "::error::sidecar protocol-v2 handshake failed"; exit 1; }
+
+          # Deploy: executable + runtime as siblings, matching the Tauri layout.
+          rm -rf "$BINARIES_DIR/$RUNTIME_DIR_NAME"
+          cp -R "$PROCESSOR_DIR/build/sidecar-dist/$SIDECAR_NAME/$RUNTIME_DIR_NAME" "$BINARIES_DIR/$RUNTIME_DIR_NAME"
+          cp "$BUILT_BIN" "$BINARIES_DIR/$SIDECAR_NAME-${{ matrix.target }}"
+          chmod +x "$BINARIES_DIR/$SIDECAR_NAME-${{ matrix.target }}"
+
+          # Refuse to ship downloaded model weights (mirrors build-sidecar.ps1).
+          if find "$BINARIES_DIR/$RUNTIME_DIR_NAME" -type f \( -name '*.safetensors' -o -name '*.ckpt' -o -path '*/snapshots/*' -o -path '*/models--*/*' \) | grep -q .; then
+            echo "::error::Downloaded model weights found in packaged runtime"; exit 1
+          fi
+
+          echo "Sidecar built and staged for ${{ matrix.target }}"
+
+      # ── 5. Prepare the macOS icon (best-effort .icns generation) ────────────
+      - name: Prepare macOS icon
+        shell: bash
+        run: node scripts/prepare-mac-icon.js "$SOURCE_DIR/src-tauri"
+
+      # ── 6. Patch tauri.conf.json for macOS bundling ────────────────────────
+      - name: Configure macOS bundle (tauri.conf.json)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp assets/macos-entitlements.plist "$SOURCE_DIR/src-tauri/macos-entitlements.plist"
+          python3 - "$SOURCE_DIR/src-tauri/tauri.conf.json" <<'PY'
+          import json, sys
+          p = sys.argv[1]
+          cfg = json.loads(open(p, encoding="utf-8").read())
+          cfg["bundle"]["targets"] = ["app", "dmg"]
+          cfg["bundle"]["icon"] = ["icons/icon.icns"]
+          cfg["bundle"]["macOS"] = {"entitlements": "macos-entitlements.plist", "hardenedRuntime": True}
+          open(p, "w", encoding="utf-8").write(json.dumps(cfg, indent=2) + "\n")
+          print("Patched tauri.conf.json → targets=app,dmg  icon=icon.icns  entitlements=macos-entitlements.plist")
+          PY
+
+      # ── 7. Import the Apple certificate into a temporary keychain ──────────
+      - name: Import Apple signing certificate
+        id: import-cert
+        shell: bash
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_FILE="$(mktemp /tmp/certificate.XXXXXX.p12)"
+          echo "$MAC_CSC_LINK" | base64 --decode > "$CERT_FILE"
+
+          KEYCHAIN_DIR="$(mktemp -d)"
+          KEYCHAIN_PATH="$KEYCHAIN_DIR/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_FILE" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$MAC_CSC_KEY_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "$(security list-keychains -d user | tr -d '"')"
+          security default-keychain -s "$KEYCHAIN_PATH"
+
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+            | grep -oE '"Developer ID Application[^"]*"' | head -1 | sed 's/"//g')"
+          test -n "$IDENTITY" || { echo "::error::No 'Developer ID Application' identity found"; exit 1; }
+          echo "Resolved signing identity: $IDENTITY"
+
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "keychain_path=$KEYCHAIN_PATH" >> "$GITHUB_OUTPUT"
+          echo "keychain_password=$KEYCHAIN_PASSWORD" >> "$GITHUB_OUTPUT"
+          rm -f "$CERT_FILE"
+
+      # ── 8. Build and sign with Tauri (notarisation deferred to step 9) ─────
+      - name: Build, sign and bundle (Tauri)
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ steps.import-cert.outputs.identity }}
+        run: |
+          set -euo pipefail
+          cd "$SOURCE_DIR"
+          # Tauri signs the .app and DMG using APPLE_SIGNING_IDENTITY.
+          # Built-in notarisation is intentionally skipped here: it runs
+          # explicitly in the next step (mirrors compass-desktop).
+          npx tauri build --target "${{ matrix.target }}" --bundles app,dmg
+
+      # ── 9. Notarise and staple both the .app and the DMG ───────────────────
+      - name: Notarise and staple (.app + DMG)
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          APP_DIR="$SOURCE_DIR/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          DMG_DIR="$SOURCE_DIR/src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
+
+          APP_BUNDLE="$(find "$APP_DIR" -maxdepth 1 -name '*.app' -print -quit)"
+          DMG_FILE="$(find "$DMG_DIR" -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$APP_BUNDLE" || { echo "::error::No .app bundle produced"; exit 1; }
+          test -n "$DMG_FILE"  || { echo "::error::No .dmg produced"; exit 1; }
+
+          # notarytool accepts ZIP archives, not raw .app directories.
+          NOTARY_DIR="$(mktemp -d)"
+          trap 'rm -rf "$NOTARY_DIR"' EXIT
+          APP_ZIP="$NOTARY_DIR/app-notarize.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$APP_ZIP"
+
+          for artifact in "$APP_BUNDLE" "$DMG_FILE"; do
+            SUBMISSION="$artifact"
+            if [ "$artifact" = "$APP_BUNDLE" ]; then
+              SUBMISSION="$APP_ZIP"
+            fi
+            echo "Submitting $(basename "$SUBMISSION") for notarisation…"
+            xcrun notarytool submit "$SUBMISSION" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait
+            echo "Stapling $(basename "$artifact")…"
+            xcrun stapler staple "$artifact"
+          done
+
+      # ── 10. Stage cleanly-named release artifacts ──────────────────────────
+      - name: Prepare release artifacts
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./$SOURCE_DIR/package.json').version")"
+          APP_DIR="$SOURCE_DIR/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          DMG_DIR="$SOURCE_DIR/src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
+          APP_BUNDLE="$(find "$APP_DIR" -maxdepth 1 -name '*.app' -print -quit)"
+          DMG_FILE="$(find "$DMG_DIR" -maxdepth 1 -name '*.dmg' -print -quit)"
+
+          STAGING="$(mktemp -d)"
+          DMG_OUT="$STAGING/Nova-Twix-$VERSION-mac-${{ matrix.arch }}.dmg"
+          ZIP_OUT="$STAGING/Nova-Twix-$VERSION-mac-${{ matrix.arch }}.zip"
+          cp "$DMG_FILE" "$DMG_OUT"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$ZIP_OUT"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dmg=$DMG_OUT" >> "$GITHUB_OUTPUT"
+          echo "zip=$ZIP_OUT" >> "$GITHUB_OUTPUT"
+          echo "Staged $DMG_OUT and $ZIP_OUT"
+
+      # ── 11. Upload artifacts to the latest GitHub Release ──────────────────
+      - name: Upload release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RELEASE_JSON="$(gh api "repos/${{ github.repository }}/releases/latest" 2>/dev/null)" || {
+            echo "::error::No GitHub Release found. Create a release before running this workflow."
+            exit 1
+          }
+          TAG="$(echo "$RELEASE_JSON" | jq -r '.tag_name')"
+          echo "Uploading to latest release: $TAG"
+          gh release upload "$TAG" "${{ steps.prepare.outputs.dmg }}" "${{ steps.prepare.outputs.zip }}" --clobber
+
+      # ── 12. Clean up the temporary keychain ────────────────────────────────
+      - name: Clean up keychain
+        if: always()
+        shell: bash
+        run: |
+          KEYCHAIN_PATH="${{ steps.import-cert.outputs.keychain_path }}"
+          if [ -n "$KEYCHAIN_PATH" ] && [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi
