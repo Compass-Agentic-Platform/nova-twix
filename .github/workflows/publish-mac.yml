@@ -84,21 +84,10 @@ jobs:
     environment: nova-twix-build
     strategy:
       fail-fast: false
+      # Select complete build entries before expanding the matrix.
+      # PyInstaller requires a native runner for each architecture.
       matrix:
-        include:
-          - runner: macos-latest
-            arch: arm64
-            target: aarch64-apple-darwin
-            enabled: ${{ github.event.inputs.architectures == 'arm64' || github.event.inputs.architectures == 'both' }}
-          # NOTE: Intel (x64) builds require an Intel macOS runner because
-          # PyInstaller cannot cross-compile the Python sidecar. Use an
-          # explicitly Intel runner so the sidecar matches the Rust target.
-          - runner: macos-15-intel
-            arch: x64
-            target: x86_64-apple-darwin
-            enabled: ${{ github.event.inputs.architectures == 'x64' || github.event.inputs.architectures == 'both' }}
-        exclude:
-          - enabled: false
+        include: ${{ fromJSON(inputs.architectures == 'arm64' && '[{"runner":"macos-latest","arch":"arm64","target":"aarch64-apple-darwin"}]' || inputs.architectures == 'x64' && '[{"runner":"macos-15-intel","arch":"x64","target":"x86_64-apple-darwin"}]' || '[{"runner":"macos-latest","arch":"arm64","target":"aarch64-apple-darwin"},{"runner":"macos-15-intel","arch":"x64","target":"x86_64-apple-darwin"}]') }}
 
     steps:
       # ── 0. Checkout the release repo (for scripts + entitlements) ──────────
