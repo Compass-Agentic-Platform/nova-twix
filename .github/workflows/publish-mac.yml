@@ -227,7 +227,13 @@ jobs:
       # ── 5. Prepare the macOS icon (best-effort .icns generation) ────────────
       - name: Prepare macOS icon
         shell: bash
-        run: node scripts/prepare-mac-icon.js "$SOURCE_DIR/src-tauri"
+        run: |
+          set -euo pipefail
+          node scripts/prepare-mac-icon.js "$SOURCE_DIR/src-tauri"
+          # generate_context! needs a PNG window icon as well as the bundle ICNS.
+          sips -s format png "$SOURCE_DIR/src-tauri/icons/icon.icns" \
+            --out "$SOURCE_DIR/src-tauri/icons/icon.png"
+          test -s "$SOURCE_DIR/src-tauri/icons/icon.png"
 
       # ── 6. Patch tauri.conf.json for macOS bundling ────────────────────────
       - name: Configure macOS bundle (tauri.conf.json)
@@ -240,10 +246,12 @@ jobs:
           p = sys.argv[1]
           cfg = json.loads(open(p, encoding="utf-8").read())
           cfg["bundle"]["targets"] = ["app", "dmg"]
-          cfg["bundle"]["icon"] = ["icons/icon.icns"]
+          cfg["bundle"]["icon"] = ["icons/icon.png", "icons/icon.icns"]
+          # Tauri 2.11 requires this to enable transparent macOS windows.
+          cfg["app"]["macOSPrivateApi"] = True
           cfg["bundle"]["macOS"] = {"entitlements": "macos-entitlements.plist", "hardenedRuntime": True}
           open(p, "w", encoding="utf-8").write(json.dumps(cfg, indent=2) + "\n")
-          print("Patched tauri.conf.json → targets=app,dmg  icon=icon.icns  entitlements=macos-entitlements.plist")
+          print("Patched tauri.conf.json → targets=app,dmg  icons=icon.png,icon.icns  entitlements=macos-entitlements.plist")
           PY
 
       # ── 7. Import the Apple certificate into a temporary keychain ──────────
