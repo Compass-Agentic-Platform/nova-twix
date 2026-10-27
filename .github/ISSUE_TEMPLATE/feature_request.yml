@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest an idea for Nova Twix
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your request related to a problem?
+      description: A clear description of the problem or gap this would solve.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you like Nova Twix to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternatives or workarounds you have already tried.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the app does this relate to?
+      options:
+        - Audio capture / recording
+        - Transcription
+        - Speaker diarisation
+        - Model downloads / settings
+        - Notes / export
+        - Local storage / database
+        - System tray / menu
+        - Installer / updater
+        - Other

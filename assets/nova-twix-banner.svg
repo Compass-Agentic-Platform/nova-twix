@@ -1,0 +1,26 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F172A"/>
+      <stop offset="0.55" stop-color="#1E1B4B"/>
+      <stop offset="1" stop-color="#312E81"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(900 120) rotate(90) scale(420)">
+      <stop stop-color="#7C3AED" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#7C3AED" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <g transform="translate(120 150)">
+    <text x="0" y="0" fill="#FFFFFF" font-family="Avenir Next, Segoe UI, Helvetica, sans-serif" font-size="96" font-weight="700" letter-spacing="-1">Nova Twix</text>
+    <text x="0" y="88" fill="#C4B5FD" font-family="Avenir Next, Segoe UI, Helvetica, sans-serif" font-size="34" font-weight="400">Local-first meeting recording, transcription and review</text>
+    <rect x="0" y="132" width="64" height="6" rx="3" fill="#8B5CF6"/>
+  </g>
+
+  <g transform="translate(120 470)">
+    <text x="0" y="0" fill="#A5B4FC" font-family="Segoe UI, Helvetica, sans-serif" font-size="22" font-weight="500">Private · On-device · Multi-platform</text>
+  </g>
+</svg>

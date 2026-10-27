@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a problem with Nova Twix
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more detail you provide, the faster we can help.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Where are you running Nova Twix?
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows 10
+        - Windows 11
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which version of Nova Twix are you using?
+      placeholder: "0.1.1"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps to reproduce the issue.
+      placeholder: |
+        1. Start a recording
+        2. Stop the recording
+        3. Open the notes
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the app does this affect?
+      options:
+        - Audio capture / recording
+        - Transcription
+        - Speaker diarisation
+        - Model downloads / settings
+        - Notes / export
+        - Local storage / database
+        - System tray / menu
+        - Installer / updater
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and additional context
+      description: Any relevant log output, error messages, or screenshots.
