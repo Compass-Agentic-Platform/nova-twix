@@ -160,6 +160,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          PROTOCOL_DIR="$(cd "$SOURCE_DIR/protocol" && pwd)"
           PROCESSOR_DIR="$SOURCE_DIR/processor"
           BINARIES_DIR="$SOURCE_DIR/src-tauri/binaries"
           mkdir -p "$BINARIES_DIR"
@@ -180,7 +181,7 @@ jobs:
             --specpath build \
             --paths src \
             --additional-hooks-dir ../scripts/pyinstaller-hooks \
-            --add-data "../protocol:protocol" \
+            --add-data "$PROTOCOL_DIR:protocol" \
             --collect-all whisperx \
             --collect-all faster_whisper \
             --collect-all pyannote.audio \
