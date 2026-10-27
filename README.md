@@ -1,142 +1,98 @@
-# Nova Twix — Release & Distribution
+<p align="center">
+  <a href="https://www.compassap.ai/"><img src="assets/compass-ecosystem-banner.svg" alt="Explore the Compass ecosystem" width="100%" /></a>
+  <br />
+  <strong><a href="https://www.compassap.ai/">Compass Website</a> · <a href="https://www.compassap.ai/docs">Compass Documentation</a> · <a href="https://www.compassap.ai/academy">Compass Academy</a></strong>
+</p>
 
-> **This repository contains no application source code.** It is the release and
-> distribution scaffolding for **Nova Twix**, a local-first meeting recorder,
-> transcriber and diarisation app built with **Tauri 2 (Rust)** and a
-> **Python processor sidecar**.
+# Nova Twix
 
-The actual source lives in a private Azure DevOps repository and is fetched at
-build time by the CI workflows. This mirrors the `compass-desktop`
-release-repository pattern, but the pipeline is adapted for Tauri/Rust rather
-than Electron.
+**Stay in the conversation. Record your meetings, turn speech into text, and review who said what — with audio and speech processing kept on your computer.**
+
+[Download Nova Twix](../../releases) · [Report a bug](../../issues) · [Suggest a feature](../../issues)
 
 ---
 
-## What's here
+## Your meetings, easier to revisit
 
-| Path | Purpose |
+You do not need to remember every word or replay an entire meeting to check a detail. Nova Twix brings recording, readable transcripts, speaker labels, and exports into one desktop app.
+
+| What you can do | How it helps |
 | --- | --- |
-| `.github/workflows/publish-mac.yml` | Build, sign, notarise and upload the macOS release |
-| `.github/workflows/update-release-hashes.yml` | Recompute SHA-256/size metadata on every release |
-| `scripts/sha256.js` | Streams a file and prints its SHA-256 hash |
-| `scripts/update-hashes.js` | Merges asset metadata into `latest.json` (local + CI modes) |
-| `scripts/prepare-mac-icon.js` | Produces an `.icns` icon from the source repo's assets |
-| `assets/macos-entitlements.plist` | Hardened-runtime entitlements used for macOS signing |
-| `latest.json` | Update manifest consumed by the desktop auto-updater |
-| `.github/ISSUE_TEMPLATE/` | Bug and feature templates |
-| `assets/nova-twix-banner.svg` | Repo branding banner |
+| **Capture both sides of the conversation** | Record your microphone and the audio playing on your computer. |
+| **Turn recordings into text** | Read through the discussion instead of listening to it all again. |
+| **Follow who said what** | Review speaker-labelled text and edit speaker names. |
+| **Keep working offline** | Transcribe locally once the required models are downloaded and verified. |
+| **Pick up where you left off** | Cancel processing when needed and resume after restarting the app. |
+| **Take your transcript with you** | Export plain text, Markdown, JSON, or SRT subtitles. |
+| **Manage your recordings** | Delete a session in the app to remove its local audio and generated files. |
 
----
+## Get started
 
-## Repositories
+### 1. Install Nova Twix
 
-- **Distribution (this repo):** `https://github.com/Compass-Agentic-Platform/nova-twix`
-- **Source (private):** `https://dev.azure.com/oakpeak-devops/Kore/_git/nova-twix`
+Open the [releases page](../../releases), choose a release, and download its installer. The application currently supports **Windows 10 and 11, 64-bit**. Check the release notes for available downloads and any installation guidance.
 
-The source is never committed here. During CI it is cloned from the secret
-`NOVA_TWIX_REPO` (see below).
+### 2. Prepare transcription once
 
----
+In **Settings**, save your authorised Compass API key and choose a local processing model. Check the download size, select **Download and verify model**, and wait for **Offline ready**.
 
-## macOS release pipeline
+You need internet access and a Compass API key for the model download, but **you do not need a separate Hugging Face account or token**. Once a compatible model is installed and verified, you can process recordings offline without a key. Recording and reviewing existing transcripts do not require a model download.
 
-`publish-mac.yml` is triggered manually (`workflow_dispatch`) and runs on macOS.
-It builds in a matrix for **Apple Silicon (`arm64`)** and, when requested,
-**Intel (`x64`)** (an `architectures` input defaults to `both`) and:
+### 3. Record your conversation
 
-1. Validates all required signing/notarisation secrets.
-2. Clones the source from `NOVA_TWIX_REPO` into `source-app/`.
-3. Installs Rust (with both Darwin targets), Node.js, and Python 3.12 + `uv`.
-4. Builds the Python processor sidecar with **PyInstaller** and places the
-   Mach-O binary as `src-tauri/binaries/nova-twix-processor-<target-triple>`.
-5. Generates a macOS `.icns` icon if the source only ships a Windows `.ico`.
-6. Imports the Developer ID Application certificate into a temporary keychain.
-7. Patches `tauri.conf.json` (targets `app` + `dmg`, `.icns` icon) and applies
-   `assets/macos-entitlements.plist`, which adds the microphone entitlement the
-   recorder needs and the native-library allowances the Python sidecar needs.
-8. Runs `tauri build` (signing the `.app` and producing a `.dmg`), then
-   notarises and staples both the `.app` and the `.dmg` with `xcrun notarytool`.
-9. Uploads the `.dmg` (and a zipped `.app`) to the latest GitHub Release.
+Choose your microphone and computer audio device, make sure everyone agrees to be recorded, and start recording. Stop from the app or its system tray control when the conversation ends.
 
-The notarisation flow deliberately mirrors `compass-desktop`: Tauri's own
-built-in notarisation is bypassed and `xcrun notarytool` is run explicitly for
-both the `.app` and the DMG.
+### 4. Read, review, and export
 
-> **Intel (`x64`) builds need an Intel runner.** The Python sidecar is built
-> with PyInstaller, which cannot cross-compile, so `x64` requires an Intel
-> macOS machine. GitHub is sunsetting the `macos-13` (Intel) runner — if it is
-> retired, point that matrix entry at a self-hosted Intel runner, or run with
-> `architectures: arm64` only.
+Start processing to create your transcript. Review the text and speaker names, then export in the format that suits your next step.
 
----
+## From conversation to something useful
 
-## Required secrets
+- **Team meetings:** revisit a discussion when you need to check exactly what was said.
+- **Interviews:** follow each speaker's contributions without replaying the whole recording.
+- **Project handovers:** keep a readable reference alongside your working notes.
+- **Captions and other tools:** export SRT subtitles or use text, Markdown, and JSON in your own workflow.
 
-Create these as **environment secrets** on the `nova-twix-build` environment (or
-remove the `environment:` line from `publish-mac.yml` to use repository
-secrets).
+## Your recordings stay local
 
-| Secret | Description |
-| --- | --- |
-| `NOVA_TWIX_REPO` | Full Azure DevOps clone URL including an embedded PAT, e.g. `https://<token>@dev.azure.com/oakpeak-devops/Kore/_git/nova-twix` |
-| `MAC_CSC_LINK` | Base64-encoded `.p12` Developer ID Application certificate (`base64 -i cert.p12 \| tr -d '\n'`) |
-| `MAC_CSC_KEY_PASSWORD` | Password for the `.p12` file |
-| `APPLE_ID` | Apple ID used for notarisation |
-| `APPLE_ID_PASSWORD` | App-specific password for that Apple ID |
-| `APPLE_TEAM_ID` | 10-character Apple Developer Team ID (required for signing/notarisation) |
-| `RELEASE_PAT` | *Optional.* Used by `update-release-hashes.yml` when branch protection blocks the default `GITHUB_TOKEN` |
+Nova Twix records and processes speech on your computer, with **no cloud fallback for transcription**. Compass receives authentication and model-download metadata, not your recordings or transcripts.
 
----
+Your Compass credentials are kept in Windows Credential Manager, separate from your recordings and transcripts. You control when to export your content and can delete sessions from within the app.
 
-## Source-side prerequisites
+Processing speed depends on your computer and the length of the recording. Automatic transcripts and speaker labels can contain mistakes, so check important details against the audio.
 
-The pipeline is self-contained, but the source repository must satisfy a few
-requirements for the macOS build to succeed:
+**Always obtain the necessary consent before recording.** Recording rules vary by location; an in-app reminder does not replace your responsibility to follow them.
 
-- **Rust sidecar resolution:** `src-tauri/src/sidecar/mod.rs` resolves the
-  sidecar as `nova-twix-processor` + the platform suffix. On macOS the pipeline
-  must produce `binaries/nova-twix-processor-aarch64-apple-darwin` and
-  `binaries/nova-twix-processor-x86_64-apple-darwin`. This is handled by the
-  workflow.
-- **Python sidecar:** the source declares the package `nova-twix-processor`
-  (Hatchling) with a `pyproject.toml`. The workflow builds it with PyInstaller.
-  If the source's ML dependencies (e.g. `torch`, `whisperx`, `pyannote.audio`)
-  change, update the PyInstaller command in `publish-mac.yml`.
-- **App icon:** for best results the source should ship a 1024×1024
-  `src-tauri/icons/icon.png` or `icon.icns`. If only `icon.ico` is present, the
-  workflow generates an `.icns` on a best-effort basis (`prepare-mac-icon.js`).
-- **Bundle config:** the workflow patches `tauri.conf.json` at build time to
-  target `app` + `dmg` and reference the generated icon. No source edit is
-  required.
+## Questions before you start
 
----
+**Does it need an internet connection?**
 
-## `latest.json` and the hash update flow
+For the initial model download, yes. Recording, reviewing transcripts, and processing with verified installed models can work offline.
 
-`latest.json` is the manifest the desktop app's auto-updater reads. It is kept
-in sync by `update-release-hashes.yml`, which fires on every release
-create/edit:
+**Do I need to set up developer tools?**
 
-1. Downloads each non-source binary asset attached to the release.
-2. Computes its SHA-256 and byte size.
-3. Writes the results into `latest.json` and pushes the change with `[skip ci]`.
+Use a published installer from the releases page. This repository is for downloads and feedback, not for building the application yourself.
 
-Draft releases are skipped. Asset downloads retry up to three times with
-exponential backoff. The workflow maps filenames to platform keys
-(`darwin-arm64`, `darwin-x64`, `win32-x64`, `linux-x64`).
+**Can I share the transcript?**
 
----
+Yes — export plain text or Markdown for reading and notes, SRT for subtitles, or JSON for other tools. Check that you have permission before sharing meeting content.
 
-## Triggering a release
+**Does it work on macOS or Linux?**
 
-1. Go to **Actions → "Publish macOS (Signed)" → Run workflow**.
-2. Optionally set the source branch/tag (default `master`).
-3. Confirm a GitHub Release already exists — the upload step targets the latest
-   existing release and fails if none is found.
-4. After upload, `update-release-hashes.yml` runs automatically and refreshes
-   `latest.json`.
+The application currently supports Windows 10 and 11, 64-bit. Do not assume support for another platform unless a future release explicitly announces it.
 
----
+## Feedback and ideas
+
+Found something that does not work, or have an idea for making Nova Twix better? [Open an issue](../../issues).
+
+- **For a bug:** include your operating system, app version, what happened, and what you expected.
+- **For an idea:** describe what you are trying to do and how the change would help.
+
+Please do not include private recordings, transcripts, API keys, or other sensitive information in public issues.
+
+## About this repository
+
+This is the home for Nova Twix downloads, release notes, and feedback. The application source code is maintained separately in a private repository.
 
 ## License
 
