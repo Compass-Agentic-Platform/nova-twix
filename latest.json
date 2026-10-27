@@ -6,6 +6,12 @@
   "mandatory": false,
   "prerelease": false,
   "platforms": {
+    "darwin-arm64": {
+      "url": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/download/v0.1.0/Nova-Twix-0.1.1-mac-arm64.zip",
+      "sha256": "32210b6f5f107c8d1abc6bb7ee6e6265b0ce7bdad554e8a54994eef6aa746276",
+      "size": 341847613,
+      "filename": "Nova-Twix-0.1.1-mac-arm64.zip"
+    },
     "win32-x64": {
       "url": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/download/v0.1.0/Nova.Twix_0.1.0_x64-setup.exe",
       "sha256": "bd009401ca512322a22c70889f42c035c0450eca577bc446c680fa4ccf9487e4",
