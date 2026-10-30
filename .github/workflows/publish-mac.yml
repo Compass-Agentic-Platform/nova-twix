@@ -211,14 +211,17 @@ jobs:
           echo "$HANDSHAKE_LINE" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d.get("type")=="handshake" and d.get("protocolVersion")==2, d' \
             || { echo "::error::sidecar protocol-v2 handshake failed"; exit 1; }
 
-          # Deploy: executable + runtime as siblings, matching the Tauri layout.
-          rm -rf "$BINARIES_DIR/$RUNTIME_DIR_NAME"
-          cp -R "$PROCESSOR_DIR/build/sidecar-dist/$SIDECAR_NAME/$RUNTIME_DIR_NAME" "$BINARIES_DIR/$RUNTIME_DIR_NAME"
-          cp "$BUILT_BIN" "$BINARIES_DIR/$SIDECAR_NAME-${{ matrix.target }}"
-          chmod +x "$BINARIES_DIR/$SIDECAR_NAME-${{ matrix.target }}"
+          # Tauri's macOS resource mapping bundles this complete directory as
+          # Resources/nova-twix-processor, keeping executable + runtime together.
+          STAGED_DIR="$BINARIES_DIR/$SIDECAR_NAME-macos"
+          rm -rf "$STAGED_DIR"
+          cp -R "$PROCESSOR_DIR/build/sidecar-dist/$SIDECAR_NAME" "$STAGED_DIR"
+          chmod +x "$STAGED_DIR/$SIDECAR_NAME"
+          test -x "$STAGED_DIR/$SIDECAR_NAME"
+          test -d "$STAGED_DIR/$RUNTIME_DIR_NAME"
 
           # Refuse to ship downloaded model weights (mirrors build-sidecar.ps1).
-          if find "$BINARIES_DIR/$RUNTIME_DIR_NAME" -type f \( -name '*.safetensors' -o -name '*.ckpt' -o -path '*/snapshots/*' -o -path '*/models--*/*' \) | grep -q .; then
+          if find "$STAGED_DIR/$RUNTIME_DIR_NAME" -type f \( -name '*.safetensors' -o -name '*.ckpt' -o -path '*/snapshots/*' -o -path '*/models--*/*' \) | grep -q .; then
             echo "::error::Downloaded model weights found in packaged runtime"; exit 1
           fi
 
