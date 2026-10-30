@@ -1,16 +1,16 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "releaseDate": "2026-10-30",
-  "releaseNotes": "Meet **Twix**, Compass’s private meeting companion, turning conversations into locally processed transcripts with speaker identification and easy export.\r\n\r\n## ✨ What's New\r\n\r\n### 🎙️ Record Your Meetings\r\n\r\n- Capture microphone and system audio using your selected devices.\r\n- Stop a recording from the app or the system tray. Recordings and timing information are saved locally.\r\n- Use the configurable consent reminder before recording. You remain responsible for obtaining consent from participants.\r\n\r\n### 🗣️ Transcribe and Identify Speakers\r\n\r\n- Turn recordings into speaker-labelled transcripts with local transcription and speaker identification.\r\n- Review transcript text and edit speaker names.\r\n- Cancel processing jobs and resume them after restarting the app.\r\n\r\n### 📤 Keep and Share Your Notes\r\n\r\n- Export transcripts as JSON, Markdown, text, or SRT.\r\n- Delete a session from the app to remove its local audio and derived data.\r\n\r\n### 🔐 Local Processing with Compass\r\n\r\n- Download and verify a compatible processing model using a Compass API key. No personal Hugging Face account or token is required.\r\n- Once a model is installed and verified, process recordings offline. There is no cloud transcription fallback.\r\n- Recordings and transcripts stay local; Compass receives authentication and model-download metadata.\r\n\r\n## ⚙️ Getting Started\r\n\r\n- Twix supports Windows 10 and 11 on x64 computers.\r\n- In **Settings**, save a Compass API key and download a model. Wait for **Offline ready** before processing a recording.\r\n- See [Setup and diagnostics](setup-and-diagnostics.md) for model, hardware, local-data, and installer details.\r\n\r\n🛸 Co-authored with [Nova](https://www.compassap.ai/nova)",
-  "releaseNotesUrl": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/tag/v0.1.0",
+  "releaseNotes": "## ✨ Improvements\r\n\r\n### 🔄 Updates\r\n\r\n- Added in-app update support, with checks at startup and in Settings. Downloading and installing updates requires user action, and installation is deferred while recording or unfinished work is active.\r\n\r\n### 🎙️ Recording and Review\r\n\r\n- Added recording timers.\r\n- Improved meeting review controls, queue and dropdown feedback, and the notes status display.\r\n\r\n## 🛠️ Fixes\r\n\r\n- Fixed an issue where quitting the application could leave the processing queue paused on the next launch.\r\n- Constrained automatic language detection during transcription.\r\n\r\n## 💻 Compatibility\r\n\r\n- Supports Windows 10 and 11, x64.\r\n- Preserves existing recordings, transcripts, settings, credentials, and installed model locations during upgrades.\r\n- Older installations without in-app updates require a manual installation of an updater-enabled release first.\r\n",
+  "releaseNotesUrl": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/tag/v0.1.1",
   "mandatory": false,
   "prerelease": false,
   "platforms": {
     "win32-x64": {
-      "url": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/download/v0.1.0/Nova.Twix_0.1.0_x64-setup.exe",
-      "sha256": "bd009401ca512322a22c70889f42c035c0450eca577bc446c680fa4ccf9487e4",
-      "size": 259669104,
-      "filename": "Nova.Twix_0.1.0_x64-setup.exe"
+      "url": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/download/v0.1.1/Nova.Twix_0.1.1_x64-setup.exe",
+      "sha256": "ddbf416384093ed338c3e152824d0c1fbdeab38d87137845bf85443fcc86d6d5",
+      "size": 260076696,
+      "filename": "Nova.Twix_0.1.1_x64-setup.exe"
     }
   }
 }
