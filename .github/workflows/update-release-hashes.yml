@@ -280,8 +280,8 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           add: 'latest.json'
-          author_name: github-actions
-          author_email: github-actions@github.com
+          author_name: Compass
+          author_email: get.compass.ap@gmail.com
           default_author: github_actor
           message: 'chore: update latest.json for release v${{ steps.compute-hashes.outputs.version }} [skip ci]'
           push: true
