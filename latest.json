@@ -1,22 +1,16 @@
 {
-  "version": "0.1.1",
-  "releaseDate": "2026-10-30",
-  "releaseNotes": "## ✨ Improvements\r\n\r\n### 🔄 Updates\r\n\r\n- Added in-app update support, with checks at startup and in Settings. Downloading and installing updates requires user action, and installation is deferred while recording or unfinished work is active.\r\n\r\n### 🎙️ Recording and Review\r\n\r\n- Added recording timers.\r\n- Improved meeting review controls, queue and dropdown feedback, and the notes status display.\r\n\r\n## 🛠️ Fixes\r\n\r\n- Fixed an issue where quitting the application could leave the processing queue paused on the next launch.\r\n- Constrained automatic language detection during transcription.\r\n\r\n## 💻 Compatibility\r\n\r\n- Supports Windows 10 and 11, x64.\r\n- Preserves existing recordings, transcripts, settings, credentials, and installed model locations during upgrades.\r\n- Older installations without in-app updates require a manual installation of an updater-enabled release first.\r\n\r\n🛸 Co-authored with [Nova](https://www.compassap.ai/nova)\r\n",
-  "releaseNotesUrl": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/tag/v0.1.1",
+  "version": "0.1.2",
+  "releaseDate": "2026-11-03",
+  "releaseNotes": "## ✨ Improvements\r\n\r\n### 🗂️ Sessions\r\n\r\n- Added session deletion with a confirmation dialog. The session is removed from the list once deletion succeeds, and a failure to refresh the list is reported separately.\r\n- The confirmation dialog supports keyboard navigation and keeps focus inside the dialog while deletion runs.\r\n\r\n### 🖥️ Interface\r\n\r\n- Side panels (processing, notes and transcript) can now be collapsed and expanded.\r\n- Panel collapse state is remembered between launches.\r\n\r\n## 🛠️ Fixes\r\n\r\n- Reduced memory use when cleaning up audio by processing recordings as a stream instead of loading them fully into memory.\r\n- Improved echo cleanup between microphone and system audio.\r\n- Kept microphone and system audio aligned across pause and resume.\r\n\r\n## 💻 Compatibility\r\n\r\n- Supports Windows 10 and 11, x64.\r\n- Preserves existing recordings, transcripts, settings, credentials, and installed model locations during upgrades.\r\n\r\n🛸 Co-authored with [Nova](https://www.compassap.ai/nova)",
+  "releaseNotesUrl": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/tag/v0.1.2",
   "mandatory": false,
   "prerelease": false,
   "platforms": {
-    "darwin-arm64": {
-      "url": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/download/v0.1.1/Nova-Twix-0.1.1-mac-arm64.zip",
-      "sha256": "c123b7c836e11fb86f26c415f60825dedf472a91e6d0d35a577d587678d4dd5d",
-      "size": 337323548,
-      "filename": "Nova-Twix-0.1.1-mac-arm64.zip"
-    },
     "win32-x64": {
-      "url": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/download/v0.1.1/Nova.Twix_0.1.1_x64-setup.exe",
-      "sha256": "ddbf416384093ed338c3e152824d0c1fbdeab38d87137845bf85443fcc86d6d5",
-      "size": 260076696,
-      "filename": "Nova.Twix_0.1.1_x64-setup.exe"
+      "url": "https://github.com/Compass-Agentic-Platform/nova-twix/releases/download/v0.1.2/Nova.Twix_0.1.2_x64-setup.exe",
+      "sha256": "63f026b7c990f7102ec2c70dbef823cdc647c32aedb16d4b7abbed511fc63802",
+      "size": 260525456,
+      "filename": "Nova.Twix_0.1.2_x64-setup.exe"
     }
   }
 }
